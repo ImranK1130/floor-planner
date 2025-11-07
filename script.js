@@ -403,7 +403,8 @@ class FloorPlanDesigner {
             tableElement.style.height = height + 'px';
             tableElement.style.left = x + 'px';
             tableElement.style.top = y + 'px';
-            tableElement.style.transform = `rotate(${table.rotation}deg)`;
+            // Don't use CSS rotation since we're swapping dimensions directly
+            tableElement.style.transform = 'none';
             tableElement.style.transformOrigin = 'center center';
 
             const minFontSize = Math.max(8, this.scale * 0.3);
@@ -451,17 +452,12 @@ class FloorPlanDesigner {
     rotateTable(id) {
         const table = this.tables.find(t => t.id === id);
         if (table) {
-            const oldRotation = table.rotation;
             table.rotation = (table.rotation + 90) % 360;
             
-            if ((oldRotation === 0 && table.rotation === 90) || 
-                (oldRotation === 180 && table.rotation === 270) ||
-                (oldRotation === 90 && table.rotation === 180) ||
-                (oldRotation === 270 && table.rotation === 0)) {
-                const temp = table.width;
-                table.width = table.height;
-                table.height = temp;
-            }
+            // Always swap width and height when rotating
+            const temp = table.width;
+            table.width = table.height;
+            table.height = temp;
             
             this.renderTables();
         }
@@ -671,10 +667,7 @@ class FloorPlanDesigner {
             const x = centerX - width / 2;
             const y = centerY - height / 2;
             
-            exportCtx.save();
-            exportCtx.translate(centerX, centerY);
-            exportCtx.rotate((table.rotation * Math.PI) / 180);
-            exportCtx.translate(-centerX, -centerY);
+            // No rotation transform needed - dimensions are already swapped
             
             exportCtx.fillStyle = '#48bb78';
             exportCtx.fillRect(x, y, width, height);
@@ -701,8 +694,6 @@ class FloorPlanDesigner {
                 exportCtx.font = `${Math.max(10, this.scale * 0.4)}px Arial`;
                 exportCtx.fillText(`${table.size}ft`, centerX, centerY + 8);
             }
-            
-            exportCtx.restore();
         });
         
         // Add title
