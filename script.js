@@ -8,12 +8,13 @@ class FloorPlanDesigner {
         this.tables = [];
         this.roomLength = 20; // feet
         this.roomWidth = 15; // feet
-        this.baseScale = 25; // pixels per foot (increased for better visibility)
+        this.baseScale = 25; // pixels per foot
         this.scale = 25; // current scale (can be zoomed)
         this.zoomLevel = 1.0; // zoom multiplier
         this.gridSize = 1; // feet
         this.showGrid = true;
         this.showDimensions = true;
+        this.showRulers = true;
         this.snapToGrid = false;
         this.selectedTable = null;
         this.isDragging = false;
@@ -56,7 +57,6 @@ class FloorPlanDesigner {
             const neededHeight = this.roomWidth * this.baseScale;
             
             if (neededWidth > maxWidth || neededHeight > maxHeight) {
-                // Auto-fit if too large
                 this.fitToScreen();
             } else {
                 this.updateCanvasSize();
@@ -74,9 +74,14 @@ class FloorPlanDesigner {
 
         // Clear all
         document.getElementById('clearAll').addEventListener('click', () => {
+            if (this.tables.length === 0) {
+                alert('No tables to clear!');
+                return;
+            }
             if (confirm('Are you sure you want to clear all tables?')) {
                 this.tables = [];
                 this.tableNameCounter = 1;
+                this.selectedTable = null;
                 this.updateTableCount();
                 this.draw();
             }
@@ -88,10 +93,10 @@ class FloorPlanDesigner {
         });
 
         // Grid snap toggle
-        document.getElementById('snapToGrid').addEventListener('click', () => {
+        document.getElementById('snapToGrid').addEventListener('click', (e) => {
             this.snapToGrid = !this.snapToGrid;
-            document.getElementById('snapToGrid').textContent = 
-                this.snapToGrid ? 'Disable Grid Snap' : 'Enable Grid Snap';
+            e.target.textContent = this.snapToGrid ? 'Disable Grid Snap' : 'Enable Grid Snap';
+            e.target.classList.toggle('active', this.snapToGrid);
         });
 
         // Show grid toggle
@@ -104,6 +109,13 @@ class FloorPlanDesigner {
         document.getElementById('showDimensions').addEventListener('change', (e) => {
             this.showDimensions = e.target.checked;
             this.draw();
+            this.renderTables();
+        });
+
+        // Show rulers toggle
+        document.getElementById('showRulers').addEventListener('change', (e) => {
+            this.showRulers = e.target.checked;
+            this.draw();
         });
 
         // Zoom controls
@@ -113,7 +125,7 @@ class FloorPlanDesigner {
         });
 
         document.getElementById('zoomOut').addEventListener('click', () => {
-            this.zoomLevel = Math.max(this.zoomLevel - 0.25, 0.5);
+            this.zoomLevel = Math.max(this.zoomLevel - 0.25, 0.25);
             this.updateZoom();
         });
 
@@ -129,7 +141,7 @@ class FloorPlanDesigner {
         });
 
         document.getElementById('zoomOutBottom').addEventListener('click', () => {
-            this.zoomLevel = Math.max(this.zoomLevel - 0.25, 0.5);
+            this.zoomLevel = Math.max(this.zoomLevel - 0.25, 0.25);
             this.updateZoom();
         });
 
@@ -144,11 +156,11 @@ class FloorPlanDesigner {
             this.updateZoom();
         });
 
-        // Mouse wheel zoom (with Ctrl/Cmd key for precision)
+        // Mouse wheel zoom (with Ctrl/Cmd key)
         this.canvas.addEventListener('wheel', (e) => {
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
                 this.zoomLevel = Math.max(0.25, Math.min(2.5, this.zoomLevel + delta));
                 this.updateZoom();
             }
@@ -157,9 +169,8 @@ class FloorPlanDesigner {
         // Panning functionality
         const canvasWrapper = this.canvas.parentElement;
         
-        // Right-click or spacebar + drag to pan
         const handlePanStart = (e) => {
-            if (e.button === 2 || (e.button === 0 && this.spacePressed)) { // Right-click or spacebar + left-click
+            if (e.button === 2 || (e.button === 0 && this.spacePressed)) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.isPanning = true;
@@ -193,21 +204,50 @@ class FloorPlanDesigner {
             }
         };
 
-        // Add listeners to both wrapper and document for better coverage
         canvasWrapper.addEventListener('mousedown', handlePanStart);
         document.addEventListener('mousemove', handlePanMove);
         document.addEventListener('mouseup', handlePanEnd);
         canvasWrapper.addEventListener('mouseleave', handlePanEnd);
 
-        // Spacebar for panning
+        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            // Spacebar for panning
             if (e.code === 'Space' && !e.target.matches('input, textarea')) {
                 e.preventDefault();
                 this.spacePressed = true;
                 canvasWrapper.style.cursor = 'grab';
                 canvasWrapper.classList.add('pan-ready');
-                // Show instruction
                 this.showPanInstruction();
+            }
+            
+            // R for rotation
+            if (e.key.toLowerCase() === 'r' && !e.target.matches('input, textarea')) {
+                if (this.selectedTable) {
+                    e.preventDefault();
+                    this.rotateTable(this.selectedTable.id);
+                }
+            }
+            
+            // Delete key
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !e.target.matches('input, textarea')) {
+                if (this.selectedTable) {
+                    e.preventDefault();
+                    this.removeTable(this.selectedTable.id);
+                }
+            }
+            
+            // Escape to deselect
+            if (e.key === 'Escape') {
+                this.selectedTable = null;
+                document.querySelectorAll('.table-item').forEach(el => {
+                    el.classList.remove('selected');
+                });
+            }
+            
+            // Ctrl/Cmd + Z for undo (basic implementation)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                // Could implement undo functionality here
             }
         });
 
@@ -221,10 +261,8 @@ class FloorPlanDesigner {
             }
         });
 
-        // Show pan hint on first zoom in
+        // Show pan instruction
         this.panHintShown = false;
-        
-        // Method to show pan instruction
         this.showPanInstruction = () => {
             const panHint = document.getElementById('panHint');
             if (panHint) {
@@ -233,12 +271,12 @@ class FloorPlanDesigner {
             }
         };
 
-        // Prevent context menu on right-click (for panning)
+        // Prevent context menu
         canvasWrapper.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
 
-        // Canvas click to place tables
+        // Canvas click
         this.canvas.addEventListener('click', (e) => {
             if (!this.isDragging && !this.isPanning) {
                 const rect = this.canvas.getBoundingClientRect();
@@ -246,20 +284,15 @@ class FloorPlanDesigner {
                 const scrollTop = canvasWrapper.scrollTop;
                 const x = (e.clientX - rect.left + scrollLeft) / this.scale;
                 const y = (e.clientY - rect.top + scrollTop) / this.scale;
-                // Check if clicking on a table
                 const clickedTable = this.getTableAtPosition(x, y);
                 if (clickedTable) {
                     this.selectTable(clickedTable);
-                }
-            }
-        });
-
-        // Keyboard shortcut for rotation (R key)
-        document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'r' && !e.target.matches('input, textarea')) {
-                if (this.selectedTable) {
-                    e.preventDefault();
-                    this.rotateTable(this.selectedTable.id);
+                } else {
+                    // Deselect if clicking empty space
+                    this.selectedTable = null;
+                    document.querySelectorAll('.table-item').forEach(el => {
+                        el.classList.remove('selected');
+                    });
                 }
             }
         });
@@ -272,22 +305,14 @@ class FloorPlanDesigner {
     }
 
     updateCanvasSize() {
-        // Use zoom level to determine scale
         this.scale = this.baseScale * this.zoomLevel;
         
-        // Calculate canvas size
-        const container = this.canvas.parentElement;
-        const maxWidth = container.clientWidth - 40;
-        const maxHeight = container.clientHeight - 40;
-
         const canvasWidth = this.roomLength * this.scale;
         const canvasHeight = this.roomWidth * this.scale;
 
-        // Always use actual calculated size to allow proper scrolling
         this.canvas.width = canvasWidth;
         this.canvas.height = canvasHeight;
         
-        // Improve rendering quality at high zoom
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = 'high';
 
@@ -297,7 +322,6 @@ class FloorPlanDesigner {
         document.getElementById('scaleValue').textContent = this.scale.toFixed(1);
         document.getElementById('zoomLevel').textContent = Math.round(this.zoomLevel * 100);
         
-        // Update zoom slider
         const zoomSlider = document.getElementById('zoomSlider');
         if (zoomSlider) {
             zoomSlider.value = Math.round(this.zoomLevel * 100);
@@ -309,7 +333,6 @@ class FloorPlanDesigner {
 
     updateZoom() {
         this.updateCanvasSize();
-        // Show pan hint on first zoom in
         if (this.zoomLevel > 1.0 && !this.panHintShown) {
             const panHint = document.getElementById('panHint');
             if (panHint) {
@@ -326,52 +349,51 @@ class FloorPlanDesigner {
     }
 
     fitToScreen() {
-        // Calculate the zoom level needed to fit the room in the visible area
         const container = this.canvas.parentElement;
         const maxWidth = container.clientWidth - 40;
         const maxHeight = container.clientHeight - 40;
 
         const scaleX = maxWidth / (this.roomLength * this.baseScale);
         const scaleY = maxHeight / (this.roomWidth * this.baseScale);
-        const fitScale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+        const fitScale = Math.min(scaleX, scaleY, 1);
         
-        this.zoomLevel = Math.max(0.25, Math.min(1.0, fitScale)); // Clamp between 25% and 100%
+        this.zoomLevel = Math.max(0.25, Math.min(1.0, fitScale));
         this.updateZoom();
     }
 
     addTable(size) {
         const table = {
             id: this.tableIdCounter++,
-            size: size, // feet
-            name: `Table ${this.tableNameCounter++}`, // default name
-            x: this.roomLength / 2, // center of room
+            size: size,
+            name: `Table ${this.tableNameCounter++}`,
+            x: this.roomLength / 2,
             y: this.roomWidth / 2,
             width: size,
-            height: size * 0.6, // rectangular tables
-            rotation: 0 // rotation in degrees (0, 90, 180, 270)
+            height: size * 0.6,
+            rotation: 0
         };
 
         this.tables.push(table);
         this.updateTableCount();
         this.renderTables();
+        
+        // Auto-select the newly added table
+        this.selectTable(table);
     }
 
     renderTables() {
-        // Clear existing table elements
         this.tableContainer.innerHTML = '';
 
         this.tables.forEach(table => {
             const tableElement = document.createElement('div');
             tableElement.className = 'table-item';
+            if (this.selectedTable && this.selectedTable.id === table.id) {
+                tableElement.classList.add('selected');
+            }
             tableElement.dataset.tableId = table.id;
 
-            // Calculate dimensions based on rotation
-            const isRotated = (table.rotation === 90 || table.rotation === 270);
-            const displayWidth = isRotated ? table.height : table.width;
-            const displayHeight = isRotated ? table.width : table.height;
-            
-            const width = displayWidth * this.scale;
-            const height = displayHeight * this.scale;
+            const width = table.width * this.scale;
+            const height = table.height * this.scale;
             const centerX = table.x * this.scale;
             const centerY = table.y * this.scale;
             const x = centerX - width / 2;
@@ -384,39 +406,38 @@ class FloorPlanDesigner {
             tableElement.style.transform = `rotate(${table.rotation}deg)`;
             tableElement.style.transformOrigin = 'center center';
 
-            // Calculate font size based on table size and scale
             const minFontSize = Math.max(8, this.scale * 0.3);
             const maxFontSize = Math.min(16, this.scale * 0.6);
             const fontSize = Math.max(minFontSize, Math.min(maxFontSize, width * 0.15));
             const smallFontSize = fontSize * 0.7;
             
+            const displayWidth = table.width;
+            const displayHeight = table.height;
+            
             tableElement.innerHTML = `
                 <div class="table-label" style="font-size: ${fontSize}px;">
                     <div class="table-name" style="font-size: ${fontSize}px;">${table.name}</div>
                     <div class="table-size-info" style="font-size: ${smallFontSize}px;">${table.size}ft</div>
-                    ${this.showDimensions ? `<div class="table-size" style="font-size: ${smallFontSize * 0.85}px;">${table.width.toFixed(1)}×${table.height.toFixed(1)}ft</div>` : ''}
+                    ${this.showDimensions ? `<div class="table-size" style="font-size: ${smallFontSize * 0.85}px;">${displayWidth.toFixed(1)}×${displayHeight.toFixed(1)}ft</div>` : ''}
                 </div>
-                <div class="delete-btn" data-table-id="${table.id}">×</div>
+                <div class="delete-btn" data-table-id="${table.id}" title="Delete (or press Delete)">×</div>
                 <div class="rotate-btn" data-table-id="${table.id}" title="Rotate (or press R)">↻</div>
             `;
 
-            // Double-click to edit name
             tableElement.addEventListener('dblclick', (e) => {
-                if (e.target.classList.contains('delete-btn')) return;
-                this.editTableName(table, tableElement);
+                if (!e.target.classList.contains('delete-btn') && !e.target.classList.contains('rotate-btn')) {
+                    this.editTableName(table, tableElement);
+                }
             });
 
-            // Drag functionality
             this.makeDraggable(tableElement, table);
 
-            // Delete button
             const deleteBtn = tableElement.querySelector('.delete-btn');
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.removeTable(table.id);
             });
 
-            // Rotate button
             const rotateBtn = tableElement.querySelector('.rotate-btn');
             rotateBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -430,7 +451,18 @@ class FloorPlanDesigner {
     rotateTable(id) {
         const table = this.tables.find(t => t.id === id);
         if (table) {
+            const oldRotation = table.rotation;
             table.rotation = (table.rotation + 90) % 360;
+            
+            if ((oldRotation === 0 && table.rotation === 90) || 
+                (oldRotation === 180 && table.rotation === 270) ||
+                (oldRotation === 90 && table.rotation === 180) ||
+                (oldRotation === 270 && table.rotation === 0)) {
+                const temp = table.width;
+                table.width = table.height;
+                table.height = temp;
+            }
+            
             this.renderTables();
         }
     }
@@ -440,14 +472,14 @@ class FloorPlanDesigner {
         let startX, startY, initialX, initialY;
 
         element.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('delete-btn')) return;
-            if (this.spacePressed || e.button === 2) return; // Don't drag if panning
+            if (e.target.classList.contains('delete-btn') || e.target.classList.contains('rotate-btn')) return;
+            if (this.spacePressed || e.button === 2) return;
             
             isDragging = true;
             this.isDragging = true;
             element.classList.add('dragging');
+            this.selectTable(table);
             
-            const rect = element.getBoundingClientRect();
             startX = e.clientX;
             startY = e.clientY;
             initialX = table.x;
@@ -466,14 +498,9 @@ class FloorPlanDesigner {
             let newX = initialX + deltaX;
             let newY = initialY + deltaY;
 
-            // Boundary checking (account for rotation)
-            const isRotated = (table.rotation === 90 || table.rotation === 270);
-            const checkWidth = isRotated ? table.height : table.width;
-            const checkHeight = isRotated ? table.width : table.height;
-            newX = Math.max(checkWidth / 2, Math.min(this.roomLength - checkWidth / 2, newX));
-            newY = Math.max(checkHeight / 2, Math.min(this.roomWidth - checkHeight / 2, newY));
+            newX = Math.max(table.width / 2, Math.min(this.roomLength - table.width / 2, newX));
+            newY = Math.max(table.height / 2, Math.min(this.roomWidth - table.height / 2, newY));
 
-            // Grid snapping
             if (this.snapToGrid) {
                 newX = Math.round(newX / this.gridSize) * this.gridSize;
                 newY = Math.round(newY / this.gridSize) * this.gridSize;
@@ -497,12 +524,8 @@ class FloorPlanDesigner {
     getTableAtPosition(x, y) {
         for (let i = this.tables.length - 1; i >= 0; i--) {
             const table = this.tables[i];
-            // Account for rotation when checking bounds
-            const isRotated = (table.rotation === 90 || table.rotation === 270);
-            const checkWidth = isRotated ? table.height : table.width;
-            const checkHeight = isRotated ? table.width : table.height;
-            const halfWidth = checkWidth / 2;
-            const halfHeight = checkHeight / 2;
+            const halfWidth = table.width / 2;
+            const halfHeight = table.height / 2;
             
             if (x >= table.x - halfWidth && x <= table.x + halfWidth &&
                 y >= table.y - halfHeight && y <= table.y + halfHeight) {
@@ -514,23 +537,25 @@ class FloorPlanDesigner {
 
     selectTable(table) {
         this.selectedTable = table;
-        // Add visual feedback
+        document.querySelectorAll('.table-item').forEach(el => {
+            el.classList.remove('selected');
+        });
         const tableElement = document.querySelector(`[data-table-id="${table.id}"]`);
         if (tableElement) {
             tableElement.classList.add('selected');
-            // Remove selection from other tables
-            document.querySelectorAll('.table-item').forEach(el => {
-                if (el.dataset.tableId !== table.id.toString()) {
-                    el.classList.remove('selected');
-                }
-            });
         }
     }
 
     removeTable(id) {
-        this.tables = this.tables.filter(t => t.id !== id);
-        this.updateTableCount();
-        this.renderTables();
+        const index = this.tables.findIndex(t => t.id === id);
+        if (index > -1) {
+            this.tables.splice(index, 1);
+            if (this.selectedTable && this.selectedTable.id === id) {
+                this.selectedTable = null;
+            }
+            this.updateTableCount();
+            this.renderTables();
+        }
     }
 
     editTableName(table, tableElement) {
@@ -572,24 +597,21 @@ class FloorPlanDesigner {
     }
 
     downloadAsPNG() {
-        // Create a temporary canvas for export
         const exportCanvas = document.createElement('canvas');
-        const extraHeight = this.showDimensions ? 50 : 0;
-        const extraWidth = this.showDimensions ? 50 : 0;
-        exportCanvas.width = this.canvas.width + extraWidth;
-        exportCanvas.height = this.canvas.height + extraHeight;
+        const padding = 60;
+        exportCanvas.width = this.canvas.width + padding * 2;
+        exportCanvas.height = this.canvas.height + padding * 2;
         const exportCtx = exportCanvas.getContext('2d');
         
-        // Draw the floor plan background
+        // White background
         exportCtx.fillStyle = '#ffffff';
         exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        
+        // Room background
         exportCtx.fillStyle = '#f8f9fa';
-        exportCtx.fillRect(extraWidth / 2, extraHeight / 2, this.canvas.width, this.canvas.height);
+        exportCtx.fillRect(padding, padding, this.canvas.width, this.canvas.height);
         
-        const offsetX = extraWidth / 2;
-        const offsetY = extraHeight / 2;
-        
-        // Draw grid if enabled
+        // Grid
         if (this.showGrid) {
             exportCtx.strokeStyle = '#e0e0e0';
             exportCtx.lineWidth = 1;
@@ -597,136 +619,99 @@ class FloorPlanDesigner {
             
             for (let x = 0; x <= this.canvas.width; x += gridSpacing) {
                 exportCtx.beginPath();
-                exportCtx.moveTo(x + offsetX, offsetY);
-                exportCtx.lineTo(x + offsetX, this.canvas.height + offsetY);
+                exportCtx.moveTo(x + padding, padding);
+                exportCtx.lineTo(x + padding, this.canvas.height + padding);
                 exportCtx.stroke();
             }
             
             for (let y = 0; y <= this.canvas.height; y += gridSpacing) {
                 exportCtx.beginPath();
-                exportCtx.moveTo(offsetX, y + offsetY);
-                exportCtx.lineTo(this.canvas.width + offsetX, y + offsetY);
+                exportCtx.moveTo(padding, y + padding);
+                exportCtx.lineTo(this.canvas.width + padding, y + padding);
                 exportCtx.stroke();
             }
         }
         
-        // Draw room border
+        // Room border
         exportCtx.strokeStyle = '#667eea';
         exportCtx.lineWidth = 3;
-        exportCtx.strokeRect(offsetX, offsetY, this.canvas.width, this.canvas.height);
+        exportCtx.strokeRect(padding, padding, this.canvas.width, this.canvas.height);
         
-        // Draw dimensions if enabled (inside canvas like in main view)
+        // Dimensions
         if (this.showDimensions) {
             exportCtx.fillStyle = '#333';
-            const fontSize = Math.max(12, Math.min(18, this.scale * 0.5));
+            const fontSize = Math.max(14, Math.min(20, this.scale * 0.5));
             exportCtx.font = `bold ${fontSize}px Arial`;
             exportCtx.textAlign = 'center';
             exportCtx.textBaseline = 'middle';
 
-            const padding = 8;
-            const bgPadding = 4;
-            
-            // Room length (bottom center)
+            // Length (bottom)
             const lengthText = `${this.roomLength}ft`;
-            const lengthMetrics = exportCtx.measureText(lengthText);
-            const lengthWidth = lengthMetrics.width;
-            const lengthX = this.canvas.width / 2 + offsetX;
-            const lengthY = this.canvas.height + offsetY - padding;
-            
-            // Background for length
-            exportCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            exportCtx.fillRect(
-                lengthX - lengthWidth / 2 - bgPadding,
-                lengthY - fontSize / 2 - bgPadding,
-                lengthWidth + bgPadding * 2,
-                fontSize + bgPadding * 2
-            );
-            
-            exportCtx.fillStyle = '#333';
+            const lengthX = this.canvas.width / 2 + padding;
+            const lengthY = this.canvas.height + padding + 30;
             exportCtx.fillText(lengthText, lengthX, lengthY);
 
-            // Room width (left center)
+            // Width (left)
             exportCtx.save();
             const widthText = `${this.roomWidth}ft`;
-            const widthMetrics = exportCtx.measureText(widthText);
-            const widthTextWidth = widthMetrics.width;
-            const widthX = offsetX + padding;
-            const widthY = this.canvas.height / 2 + offsetY;
-            
+            const widthX = padding - 30;
+            const widthY = this.canvas.height / 2 + padding;
             exportCtx.translate(widthX, widthY);
             exportCtx.rotate(-Math.PI / 2);
-            
-            // Background for width
-            exportCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            exportCtx.fillRect(
-                -widthTextWidth / 2 - bgPadding,
-                -fontSize / 2 - bgPadding,
-                widthTextWidth + bgPadding * 2,
-                fontSize + bgPadding * 2
-            );
-            
-            exportCtx.fillStyle = '#333';
             exportCtx.fillText(widthText, 0, 0);
             exportCtx.restore();
         }
         
-        // Draw tables
+        // Tables
         this.tables.forEach(table => {
-            // Account for rotation
-            const isRotated = (table.rotation === 90 || table.rotation === 270);
-            const displayWidth = isRotated ? table.height : table.width;
-            const displayHeight = isRotated ? table.width : table.height;
-            
-            const width = displayWidth * this.scale;
-            const height = displayHeight * this.scale;
-            const centerX = table.x * this.scale + offsetX;
-            const centerY = table.y * this.scale + offsetY;
+            const width = table.width * this.scale;
+            const height = table.height * this.scale;
+            const centerX = table.x * this.scale + padding;
+            const centerY = table.y * this.scale + padding;
             const x = centerX - width / 2;
             const y = centerY - height / 2;
             
-            // Save context for rotation
             exportCtx.save();
             exportCtx.translate(centerX, centerY);
             exportCtx.rotate((table.rotation * Math.PI) / 180);
             exportCtx.translate(-centerX, -centerY);
             
-            // Draw table rectangle
             exportCtx.fillStyle = '#48bb78';
             exportCtx.fillRect(x, y, width, height);
             exportCtx.strokeStyle = '#2d7a4f';
             exportCtx.lineWidth = 3;
             exportCtx.strokeRect(x, y, width, height);
             
-            // Draw table name and info
             exportCtx.fillStyle = 'white';
             exportCtx.font = `bold ${Math.max(12, this.scale * 0.5)}px Arial`;
             exportCtx.textAlign = 'center';
             exportCtx.textBaseline = 'middle';
             
-            const textCenterX = centerX;
-            const textCenterY = centerY;
+            const textY = this.showDimensions ? -8 : 0;
+            exportCtx.fillText(table.name, centerX, centerY + textY);
             
-            // Draw name
-            exportCtx.fillText(table.name, textCenterX, textCenterY - (this.showDimensions ? 8 : 0));
-            
-            // Draw size info
             if (this.showDimensions) {
                 exportCtx.font = `${Math.max(10, this.scale * 0.4)}px Arial`;
                 exportCtx.fillText(
                     `${table.size}ft (${table.width.toFixed(1)}×${table.height.toFixed(1)}ft)`,
-                    textCenterX,
-                    textCenterY + 8
+                    centerX,
+                    centerY + 8
                 );
             } else {
                 exportCtx.font = `${Math.max(10, this.scale * 0.4)}px Arial`;
-                exportCtx.fillText(`${table.size}ft`, textCenterX, textCenterY + 8);
+                exportCtx.fillText(`${table.size}ft`, centerX, centerY + 8);
             }
             
-            // Restore context
             exportCtx.restore();
         });
         
-        // Convert to blob and download
+        // Add title
+        exportCtx.fillStyle = '#333';
+        exportCtx.font = 'bold 24px Arial';
+        exportCtx.textAlign = 'center';
+        exportCtx.fillText('Floor Plan', exportCanvas.width / 2, 30);
+        
+        // Convert and download
         exportCanvas.toBlob((blob) => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -758,55 +743,47 @@ class FloorPlanDesigner {
     }
 
     draw() {
-        // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Set high quality rendering
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = 'high';
 
-        // Draw room background
         this.ctx.fillStyle = '#f8f9fa';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw grid
         if (this.showGrid) {
             this.drawGrid();
         }
 
-        // Draw room border (scale line width with zoom for better appearance)
+        if (this.showRulers) {
+            this.drawRulers();
+        }
+
         this.ctx.strokeStyle = '#667eea';
         this.ctx.lineWidth = Math.max(2, Math.min(4, 3 / this.zoomLevel));
         this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw dimensions
         if (this.showDimensions) {
             this.drawDimensions();
         }
     }
 
     drawGrid() {
-        // Adjust grid based on zoom level for better visual quality
         const gridSpacing = this.gridSize * this.scale;
-        
-        // At high zoom, show every 5th or 10th line to reduce clutter
         let gridMultiplier = 1;
+        
         if (this.zoomLevel > 2.0) {
-            gridMultiplier = 5; // Show every 5th line at 200%+ zoom
+            gridMultiplier = 5;
         } else if (this.zoomLevel > 1.5) {
-            gridMultiplier = 2; // Show every 2nd line at 150%+ zoom
+            gridMultiplier = 2;
         }
         
         const actualSpacing = gridSpacing * gridMultiplier;
-        
-        // Use thinner, lighter lines at high zoom
         const lineWidth = Math.max(0.5, Math.min(1, 1 / this.zoomLevel));
         const lineOpacity = Math.max(0.3, Math.min(1, 1 / (this.zoomLevel * 0.5)));
         
         this.ctx.strokeStyle = `rgba(224, 224, 224, ${lineOpacity})`;
         this.ctx.lineWidth = lineWidth;
 
-        // Vertical lines
         for (let x = 0; x <= this.canvas.width; x += actualSpacing) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
@@ -814,7 +791,6 @@ class FloorPlanDesigner {
             this.ctx.stroke();
         }
 
-        // Horizontal lines
         for (let y = 0; y <= this.canvas.height; y += actualSpacing) {
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
@@ -823,29 +799,63 @@ class FloorPlanDesigner {
         }
     }
 
-    drawDimensions() {
-        if (!this.showDimensions) return;
+    drawRulers() {
+        // Simple ruler marks every 5 feet
+        this.ctx.strokeStyle = '#999';
+        this.ctx.fillStyle = '#666';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
         
-        // Cap font size at high zoom to prevent pixelation
+        const markerSpacing = 5 * this.scale;
+        
+        // Horizontal ruler
+        for (let x = 0; x <= this.canvas.width; x += markerSpacing) {
+            const feet = Math.round(x / this.scale);
+            if (feet % 5 === 0 && feet > 0 && feet < this.roomLength) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, 0);
+                this.ctx.lineTo(x, 10);
+                this.ctx.stroke();
+                this.ctx.fillText(feet + 'ft', x, 20);
+            }
+        }
+        
+        // Vertical ruler
+        this.ctx.textAlign = 'right';
+        for (let y = 0; y <= this.canvas.height; y += markerSpacing) {
+            const feet = Math.round(y / this.scale);
+            if (feet % 5 === 0 && feet > 0 && feet < this.roomWidth) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(10, y);
+                this.ctx.stroke();
+                this.ctx.save();
+                this.ctx.translate(15, y);
+                this.ctx.rotate(-Math.PI / 2);
+                this.ctx.fillText(feet + 'ft', 0, 0);
+                this.ctx.restore();
+            }
+        }
+    }
+
+    drawDimensions() {
         const fontSize = Math.max(12, Math.min(20, this.scale * 0.4));
         this.ctx.fillStyle = '#333';
         this.ctx.font = `bold ${fontSize}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
 
-        // Draw dimensions inside the canvas with background
         const padding = Math.max(6, Math.min(12, 8 * (1 / this.zoomLevel)));
         const bgPadding = Math.max(3, Math.min(6, 4 * (1 / this.zoomLevel)));
         
-        // Room length (bottom center)
+        // Length
         const lengthText = `${this.roomLength}ft`;
         const lengthMetrics = this.ctx.measureText(lengthText);
         const lengthWidth = lengthMetrics.width;
         const lengthX = this.canvas.width / 2;
         const lengthY = this.canvas.height - padding;
         
-        // Background for length
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         this.ctx.fillRect(
             lengthX - lengthWidth / 2 - bgPadding,
             lengthY - fontSize / 2 - bgPadding,
@@ -856,7 +866,7 @@ class FloorPlanDesigner {
         this.ctx.fillStyle = '#333';
         this.ctx.fillText(lengthText, lengthX, lengthY);
 
-        // Room width (left center)
+        // Width
         this.ctx.save();
         const widthText = `${this.roomWidth}ft`;
         const widthMetrics = this.ctx.measureText(widthText);
@@ -867,8 +877,7 @@ class FloorPlanDesigner {
         this.ctx.translate(widthX, widthY);
         this.ctx.rotate(-Math.PI / 2);
         
-        // Background for width
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         this.ctx.fillRect(
             -widthTextWidth / 2 - bgPadding,
             -fontSize / 2 - bgPadding,
@@ -882,8 +891,6 @@ class FloorPlanDesigner {
     }
 }
 
-// Initialize the floor plan designer when page loads
 document.addEventListener('DOMContentLoaded', () => {
     new FloorPlanDesigner();
 });
-
