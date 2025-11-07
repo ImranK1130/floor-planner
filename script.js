@@ -454,23 +454,58 @@ class FloorPlanDesigner {
         exportCtx.lineWidth = 3;
         exportCtx.strokeRect(offsetX, offsetY, this.canvas.width, this.canvas.height);
         
-        // Draw dimensions if enabled
+        // Draw dimensions if enabled (inside canvas like in main view)
         if (this.showDimensions) {
             exportCtx.fillStyle = '#333';
-            const fontSize = Math.max(14, this.scale * 0.6);
+            const fontSize = Math.max(12, Math.min(18, this.scale * 0.5));
             exportCtx.font = `bold ${fontSize}px Arial`;
             exportCtx.textAlign = 'center';
+            exportCtx.textBaseline = 'middle';
+
+            const padding = 8;
+            const bgPadding = 4;
             
-            exportCtx.fillText(
-                `${this.roomLength}ft`,
-                this.canvas.width / 2 + offsetX,
-                this.canvas.height + offsetY + 25
+            // Room length (bottom center)
+            const lengthText = `${this.roomLength}ft`;
+            const lengthMetrics = exportCtx.measureText(lengthText);
+            const lengthWidth = lengthMetrics.width;
+            const lengthX = this.canvas.width / 2 + offsetX;
+            const lengthY = this.canvas.height + offsetY - padding;
+            
+            // Background for length
+            exportCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            exportCtx.fillRect(
+                lengthX - lengthWidth / 2 - bgPadding,
+                lengthY - fontSize / 2 - bgPadding,
+                lengthWidth + bgPadding * 2,
+                fontSize + bgPadding * 2
             );
             
+            exportCtx.fillStyle = '#333';
+            exportCtx.fillText(lengthText, lengthX, lengthY);
+
+            // Room width (left center)
             exportCtx.save();
-            exportCtx.translate(offsetX - 25, this.canvas.height / 2 + offsetY);
+            const widthText = `${this.roomWidth}ft`;
+            const widthMetrics = exportCtx.measureText(widthText);
+            const widthTextWidth = widthMetrics.width;
+            const widthX = offsetX + padding;
+            const widthY = this.canvas.height / 2 + offsetY;
+            
+            exportCtx.translate(widthX, widthY);
             exportCtx.rotate(-Math.PI / 2);
-            exportCtx.fillText(`${this.roomWidth}ft`, 0, 0);
+            
+            // Background for width
+            exportCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            exportCtx.fillRect(
+                -widthTextWidth / 2 - bgPadding,
+                -fontSize / 2 - bgPadding,
+                widthTextWidth + bgPadding * 2,
+                fontSize + bgPadding * 2
+            );
+            
+            exportCtx.fillStyle = '#333';
+            exportCtx.fillText(widthText, 0, 0);
             exportCtx.restore();
         }
         
@@ -593,23 +628,59 @@ class FloorPlanDesigner {
     }
 
     drawDimensions() {
+        if (!this.showDimensions) return;
+        
         this.ctx.fillStyle = '#333';
-        const fontSize = Math.max(14, this.scale * 0.6);
+        const fontSize = Math.max(12, Math.min(18, this.scale * 0.5));
         this.ctx.font = `bold ${fontSize}px Arial`;
         this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
 
-        // Room length
-        this.ctx.fillText(
-            `${this.roomLength}ft`,
-            this.canvas.width / 2,
-            this.canvas.height + 25
+        // Draw dimensions inside the canvas with background
+        const padding = 8;
+        const bgPadding = 4;
+        
+        // Room length (bottom center)
+        const lengthText = `${this.roomLength}ft`;
+        const lengthMetrics = this.ctx.measureText(lengthText);
+        const lengthWidth = lengthMetrics.width;
+        const lengthX = this.canvas.width / 2;
+        const lengthY = this.canvas.height - padding;
+        
+        // Background for length
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        this.ctx.fillRect(
+            lengthX - lengthWidth / 2 - bgPadding,
+            lengthY - fontSize / 2 - bgPadding,
+            lengthWidth + bgPadding * 2,
+            fontSize + bgPadding * 2
         );
+        
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillText(lengthText, lengthX, lengthY);
 
-        // Room width
+        // Room width (left center)
         this.ctx.save();
-        this.ctx.translate(-25, this.canvas.height / 2);
+        const widthText = `${this.roomWidth}ft`;
+        const widthMetrics = this.ctx.measureText(widthText);
+        const widthTextWidth = widthMetrics.width;
+        const widthX = padding;
+        const widthY = this.canvas.height / 2;
+        
+        this.ctx.translate(widthX, widthY);
         this.ctx.rotate(-Math.PI / 2);
-        this.ctx.fillText(`${this.roomWidth}ft`, 0, 0);
+        
+        // Background for width
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        this.ctx.fillRect(
+            -widthTextWidth / 2 - bgPadding,
+            -fontSize / 2 - bgPadding,
+            widthTextWidth + bgPadding * 2,
+            fontSize + bgPadding * 2
+        );
+        
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillText(widthText, 0, 0);
         this.ctx.restore();
     }
 }
