@@ -229,9 +229,77 @@ header p {
     background: #5568d3;
 }
 
+.pan-hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(102, 126, 234, 0.95);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+.pan-hint kbd {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.pan-hint.show {
+    opacity: 1;
+}
+
+.pan-hint.fade-out {
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+.info-box {
+    background: #f0f4ff;
+    border: 2px solid #667eea;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.info-box kbd {
+    background: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #667eea;
+    font-family: monospace;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #667eea;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 #floorPlanCanvas {
     display: block;
-    cursor: crosshair;
+    cursor: default;
+}
+
+.canvas-wrapper.panning {
+    cursor: grabbing !important;
+}
+
+.canvas-wrapper.pan-ready {
+    cursor: grab;
 }
 
 #tableContainer {
@@ -492,5 +560,40 @@ header p {
 .delete-btn:hover {
     background: #e53e3e;
     transform: scale(1.1);
+}
+
+.rotate-btn {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: #667eea;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    transition: all 0.2s;
+}
+
+.table-item:hover .rotate-btn {
+    display: flex;
+}
+
+.rotate-btn:hover {
+    background: #5568d3;
+    transform: scale(1.1) rotate(90deg);
+}
+
+.table-item.selected {
+    box-shadow: 0 0 0 3px #667eea, 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
 }
 

@@ -56,6 +56,19 @@
                     </div>
 
                     <div class="section">
+                        <h3>Navigation</h3>
+                        <div class="info-box">
+                            <strong>Pan/Move Canvas:</strong><br>
+                            • Hold <kbd>Space</kbd> + Drag<br>
+                            • OR Right-Click + Drag<br>
+                            • Use scrollbars to navigate<br><br>
+                            <strong>Rotate Tables:</strong><br>
+                            • Click rotate button (↻) on table<br>
+                            • OR select table and press <kbd>R</kbd>
+                        </div>
+                    </div>
+
+                    <div class="section">
                         <h3>Tools</h3>
                         <button id="downloadPlan" class="btn btn-primary">Download as PNG</button>
                         <button id="clearAll" class="btn btn-danger">Clear All Tables</button>
@@ -78,9 +91,12 @@
             </div>
 
             <div class="canvas-container">
-                <div class="canvas-wrapper">
+                <div class="canvas-wrapper" id="canvasWrapper">
                     <canvas id="floorPlanCanvas"></canvas>
                     <div id="tableContainer"></div>
+                    <div class="pan-hint" id="panHint">
+                        <span>💡 <strong>How to Pan:</strong> Hold <kbd>Space</kbd> + Drag OR Right-Click + Drag</span>
+                    </div>
                 </div>
                 <div class="info-panel">
                     <div class="scale-info">
@@ -91,11 +107,11 @@
                             <span class="zoom-icon">−</span>
                         </button>
                         <div class="zoom-slider-container">
-                            <input type="range" id="zoomSlider" min="25" max="300" value="100" step="5" class="zoom-slider">
+                            <input type="range" id="zoomSlider" min="25" max="250" value="100" step="5" class="zoom-slider">
                             <div class="zoom-slider-labels">
                                 <span>25%</span>
                                 <span>100%</span>
-                                <span>300%</span>
+                                <span>250%</span>
                             </div>
                         </div>
                         <button id="zoomInBottom" class="zoom-btn" title="Zoom In">
