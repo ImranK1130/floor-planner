@@ -33,15 +33,28 @@
 
                     <div class="section">
                         <h3>Add Tables</h3>
+                        <div class="input-group">
+                            <label for="tableLength">Table Length (ft):</label>
+                            <input type="number" id="tableLength" value="6" min="1" max="20" step="0.5" aria-label="Table length in feet">
+                        </div>
+                        <div class="input-group">
+                            <label for="tableWidth">Table Width (ft):</label>
+                            <input type="number" id="tableWidth" value="2.5" min="1" max="10" step="0.5" aria-label="Table width in feet">
+                        </div>
+                        <button id="addCustomTable" class="btn btn-table">
+                            Add Custom Table
+                        </button>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+                        <div class="quick-add-label">Quick Add:</div>
                         <div class="table-buttons">
-                            <button class="btn btn-table" data-size="4" aria-label="Add 4 foot table">
-                                Add 4ft Table
+                            <button class="btn btn-table-quick" data-length="4" data-width="2.4">
+                                4ft × 2.4ft
                             </button>
-                            <button class="btn btn-table" data-size="6" aria-label="Add 6 foot table">
-                                Add 6ft Table
+                            <button class="btn btn-table-quick" data-length="6" data-width="2.5">
+                                6ft × 2.5ft
                             </button>
-                            <button class="btn btn-table" data-size="8" aria-label="Add 8 foot table">
-                                Add 8ft Table
+                            <button class="btn btn-table-quick" data-length="8" data-width="2.5">
+                                8ft × 2.5ft
                             </button>
                         </div>
                     </div>

@@ -64,12 +64,31 @@ class FloorPlanDesigner {
             }
         });
 
-        // Add table buttons
-        document.querySelectorAll('.btn-table').forEach(btn => {
+        // Add table buttons - Quick add buttons
+        document.querySelectorAll('.btn-table-quick').forEach(btn => {
             btn.addEventListener('click', () => {
-                const size = parseInt(btn.dataset.size);
-                this.addTable(size);
+                const length = parseFloat(btn.dataset.length);
+                const width = parseFloat(btn.dataset.width);
+                this.addTable(length, width);
             });
+        });
+
+        // Add custom table button
+        document.getElementById('addCustomTable').addEventListener('click', () => {
+            const length = parseFloat(document.getElementById('tableLength').value);
+            const width = parseFloat(document.getElementById('tableWidth').value);
+            
+            if (isNaN(length) || isNaN(width) || length <= 0 || width <= 0) {
+                alert('Please enter valid dimensions for the table.');
+                return;
+            }
+            
+            if (length > 20 || width > 10) {
+                alert('Table dimensions are too large. Maximum: 20ft length, 10ft width.');
+                return;
+            }
+            
+            this.addTable(length, width);
         });
 
         // Clear all
@@ -361,15 +380,15 @@ class FloorPlanDesigner {
         this.updateZoom();
     }
 
-    addTable(size) {
+    addTable(length, width) {
         const table = {
             id: this.tableIdCounter++,
-            size: size,
+            size: length, // Keep 'size' for backwards compatibility, represents length
             name: `Table ${this.tableNameCounter++}`,
             x: this.roomLength / 2,
             y: this.roomWidth / 2,
-            width: size,
-            height: size * 0.6,
+            width: length,
+            height: width,
             rotation: 0
         };
 
@@ -719,7 +738,8 @@ class FloorPlanDesigner {
         const count = this.tables.length;
         const countBySize = {};
         this.tables.forEach(t => {
-            countBySize[t.size] = (countBySize[t.size] || 0) + 1;
+            const key = `${t.width}×${t.height}`;
+            countBySize[key] = (countBySize[key] || 0) + 1;
         });
 
         let countText = `${count} table${count !== 1 ? 's' : ''} placed`;

@@ -172,6 +172,8 @@ header p {
     background: #48bb78;
     color: white;
     margin-bottom: 10px;
+    font-size: 1.05em;
+    font-weight: 600;
 }
 
 .btn-table:hover {
@@ -182,6 +184,38 @@ header p {
 
 .btn-table:active {
     transform: translateY(0);
+}
+
+.btn-table-quick {
+    background: #4299e1;
+    color: white;
+    margin-bottom: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 500;
+    width: 100%;
+}
+
+.btn-table-quick:hover {
+    background: #3182ce;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+}
+
+.btn-table-quick:active {
+    transform: translateY(0);
+}
+
+.quick-add-label {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: center;
 }
 
 .btn-danger {
